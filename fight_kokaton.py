@@ -7,6 +7,7 @@ import pygame as pg
 
 WIDTH = 1100  # ゲームウィンドウの幅
 HEIGHT = 650  # ゲームウィンドウの高さ
+NUM_OF_BOMBS = 5
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -140,13 +141,34 @@ class Bomb:
         screen.blit(self.img, self.rct)
 
 
+class Explosion:
+    """
+    爆発エフェクトのクラス
+    """
+    def __init__(self, bomb:"Bomb", life):
+        # 画像を格納するリストの設定
+        self.explosion_img1 = pg.image.load(f"fig/explosion.gif")
+        self.explosion_img2 = pg.transform.flip(self.explosion_img1, True, True)
+        self.effect_list = [self.explosion_img1, self.explosion_img2]
+        self.rct: pg.Rect = self.explosion_img1.get_rect()
+        self.rct.center = bomb.rct.center
+        # 表示時間（爆発時間）lifeを設定
+        self.life = life
+
+    def update(self, screen: pg.Surface):
+        self.life -= 1
+        if self.life > 0:
+            screen.blit(self.effect_list[self.life // 10 % 2], self.rct)
+
+
 def main():
     pg.display.set_caption("たたかえ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))    
     bg_img = pg.image.load("fig/pg_bg.jpg")
     bird = Bird((300, 200))       # インスタンスの作成
     beam = None
-    bomb = Bomb((255, 0, 0), 10)  # インスタンスの作成
+    bombs = [Bomb((250, 0, 0), 10) for i in range(NUM_OF_BOMBS)]
+    effects = []  #インスタンス用の空リスト
     clock = pg.time.Clock()
     tmr = 0
     while True:
@@ -158,7 +180,7 @@ def main():
                 beam = Beam(bird)            
         screen.blit(bg_img, [0, 0])
         
-        if bomb is not None:
+        for bomb in bombs:
             if bird.rct.colliderect(bomb.rct):
                 # ゲームオーバー
                 fonto = pg.font.Font(None, 80)
@@ -168,21 +190,30 @@ def main():
                 time.sleep(5)
                 return
         
-        if bomb is not None:
+        for i in range(len(bombs)):
             if beam is not None:
-                if bomb.rct.colliderect(beam.rct):
+                if bombs[i].rct.colliderect(beam.rct):
                     # ビームがボムに当たったとき
-                    bomb = None
+                    effects.append(Explosion(bombs[i], 50))
+                    bombs[i] = None
                     beam = None
                     # happy
                     bird.change_img(6, screen)
-
+        
+        bombs = [bomb for bomb in bombs if bomb is not None]
+        effects = [effect for effect in effects if effect.life > 0]
+        
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
+
+        for j in effects:
+            j.update(screen)
+
         if beam is not None:
             beam.update(screen)   
-        if bomb is not None:
-            bomb.update(screen)
+
+        for i in bombs:
+            i.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
